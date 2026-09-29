@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { Typography } from '@maxhub/max-ui'
-import { UNITS, sameDimension } from '@/physics/quantity'
+import { UNITS, GROUP_COLORS, groupForDimension, sameDimension } from '@/physics/quantity'
 import { allComponents, getComponent, portValue, type SolveIssue } from '@/sim'
 import type { PlacedComponent, Stand } from '@/domain/scheme'
 import s from './StandCanvas.module.css'
@@ -183,6 +183,20 @@ export function StandCanvas({
 
   return (
     <div className={s.wrap} ref={wrapRef}>
+      {editable ? (
+        <div className={s.legend}>
+          <span className={s.legendRow}>
+            <span className={`${s.legendDot} ${s.legendDotOut}`} />
+            выход — начало провода
+          </span>
+          <span className={s.legendRow}>
+            <span className={`${s.legendDot} ${s.legendDotIn}`} />
+            вход — конец провода
+          </span>
+          <span className={s.legendRow}>величины одной группы соединяются между собой</span>
+        </div>
+      ) : null}
+
       <div className={s.zoom}>
         <button type="button" className={s.zoomButton} onClick={() => zoomBy(1.2)} aria-label="Приблизить">
           +
@@ -306,33 +320,63 @@ export function StandCanvas({
                   {item.label ?? spec.title}
                 </text>
 
-                {editable
-                  ? spec.terminals.map((terminal) => {
-                      const pending =
-                        pendingTerminal?.component === item.id && pendingTerminal.terminal === terminal.id
+                {spec.terminals.map((terminal) => {
+                  const pending =
+                    pendingTerminal?.component === item.id && pendingTerminal.terminal === terminal.id
 
-                      const point = terminalPoint(item, terminal.id)
-                      if (!point) return null
+                  const point = terminalPoint(item, terminal.id)
+                  if (!point) return null
 
-                      return (
-                        <circle
-                          key={terminal.id}
-                          className={[s.terminal, pending ? s.terminalPending : ''].filter(Boolean).join(' ')}
-                          cx={point.x}
-                          cy={point.y}
-                          r={2.2}
-                          data-role="terminal"
-                          data-component={item.id}
-                          data-terminal={terminal.id}
-                          data-dir={terminal.dir}
-                          onPointerDown={(event) => {
-                            event.stopPropagation()
-                            onTerminal?.(item.id, terminal.id)
-                          }}
-                        />
-                      )
-                    })
-                  : null}
+                  const port = spec.ports.find((entry) => entry.id === terminal.port)
+                  const group = port ? groupForDimension(port.unit.dimension) : 'other'
+                  const isIn = terminal.dir === 'in'
+                  const selectedHere = selectedId === item.id
+
+                  return (
+                    <g key={terminal.id}>
+                      <circle
+                        className={[
+                          s.terminal,
+                          isIn ? s.terminalIn : s.terminalOut,
+                          pending ? s.terminalPending : '',
+                        ]
+                          .filter(Boolean)
+                          .join(' ')}
+                        cx={point.x}
+                        cy={point.y}
+                        r={2.4}
+                        data-role="terminal"
+                        data-component={item.id}
+                        data-terminal={terminal.id}
+                        data-dir={terminal.dir}
+                        onPointerDown={(event) => {
+                          event.stopPropagation()
+                          onTerminal?.(item.id, terminal.id)
+                        }}
+                      />
+
+                      {editable && (selectedHere || pending) ? (
+                        <>
+                          <circle
+                            className={s.terminalGroup}
+                            cx={point.x}
+                            cy={point.y}
+                            r={1}
+                            fill={GROUP_COLORS[group]}
+                          />
+                          <text
+                            className={s.terminalLabel}
+                            x={point.x + (terminal.side === 'left' ? -3.4 : 3.4)}
+                            y={point.y - 1.4}
+                            textAnchor={terminal.side === 'left' ? 'end' : 'start'}
+                          >
+                            {port ? `${isIn ? 'вход' : 'выход'} · ${port.unit.symbol}` : isIn ? 'вход' : 'выход'}
+                          </text>
+                        </>
+                      ) : null}
+                    </g>
+                  )
+                })}
               </g>
             )
           })}

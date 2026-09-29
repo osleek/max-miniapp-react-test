@@ -21,6 +21,17 @@ export interface PortSpec {
   label: string
   unit: Unit
   dir: 'in' | 'out'
+
+  
+  group?: string
+
+  
+  modifier?: boolean
+
+  
+  passthrough?: boolean
+
+  readonly?: boolean
 }
 
 export interface TerminalSpec {
@@ -30,6 +41,7 @@ export interface TerminalSpec {
   side: 'left' | 'right' | 'up' | 'down'
   
   port: string
+  
   dir: 'in' | 'out'
 }
 
@@ -96,6 +108,10 @@ export function portOf(spec: ComponentSpec, portId: string): PortSpec | undefine
 export function portOfTerminal(spec: ComponentSpec, terminalId: string): PortSpec | undefined {
   const terminal = spec.terminals.find((item) => item.id === terminalId)
   return terminal ? portOf(spec, terminal.port) : undefined
+}
+
+export function terminalOfPort(spec: ComponentSpec, portId: string): TerminalSpec | undefined {
+  return spec.terminals.find((item) => item.port === portId)
 }
 
 export function defaultParams(spec: ComponentSpec): Record<string, number> {

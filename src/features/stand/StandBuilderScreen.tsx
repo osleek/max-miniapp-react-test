@@ -61,7 +61,7 @@ export function StandBuilderScreen() {
       if (!spec) return []
 
       return spec.ports
-        .filter((port) => port.dir === 'out')
+        .filter((port) => !port.readonly || port.dir === 'out')
         .map((port) => ({
           componentId: component.id,
           componentTitle: spec.title,
@@ -155,7 +155,6 @@ export function StandBuilderScreen() {
               </Button>
             </div>
           ) : null}
-
           <div className={s.palette}>
             <button
               type="button"
@@ -320,8 +319,15 @@ export function StandBuilderScreen() {
               <div className={s.card}>
                 <Typography.Title variant="small-strong">Столбцы с приборов</Typography.Title>
                 <Typography.Body variant="small" className={s.hint}>
-                  Значения этих столбцов записываются автоматически.
+                  Выход прибора — замер, вход — то, что задаёт ученик. Значения таких столбцов
+                  записываются автоматически.
                 </Typography.Body>
+
+                {portOptions.length === 0 ? (
+                  <Typography.Body variant="small" className={s.hint}>
+                    Сначала добавьте приборы на стенд.
+                  </Typography.Body>
+                ) : null}
 
                 {portOptions.map((option) => (
                   <button

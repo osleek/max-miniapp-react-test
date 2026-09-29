@@ -52,11 +52,8 @@ export const electricityComponents: ComponentSpec[] = [
     domain: 'electricity',
     title: 'Источник питания',
     hint: 'Задаёт напряжение на участке цепи',
-    ports: [{ id: 'out', label: 'Напряжение', unit: UNITS.volt, dir: 'out' }],
-    terminals: [
-      { id: 'minus', x: 14, y: 50, side: 'left', port: 'out', dir: 'out' },
-      { id: 'plus', x: 86, y: 50, side: 'right', port: 'out', dir: 'out' },
-    ],
+    ports: [{ id: 'out', label: 'Напряжение', unit: UNITS.volt, dir: 'out', group: 'electrical' }],
+    terminals: [{ id: 'right', x: 86, y: 50, side: 'right', port: 'out', dir: 'out' }],
     params: [
       { id: 'emf', label: 'ЭДС', unit: UNITS.volt, of: 'control', min: 0, max: 24, step: 0.5, value: 12 },
     ],
@@ -73,54 +70,13 @@ export const electricityComponents: ComponentSpec[] = [
     ),
   },
   {
-    key: 'resistor',
-    domain: 'electricity',
-    title: 'Резистор',
-    hint: 'Закон Ома: I = U / R',
-    ports: [
-      { id: 'voltage', label: 'Напряжение', unit: UNITS.volt, dir: 'in' },
-      { id: 'current', label: 'Сила тока', unit: UNITS.ampere, dir: 'out' },
-      { id: 'power', label: 'Мощность', unit: UNITS.watt, dir: 'out' },
-    ],
-    terminals: [
-      { id: 'left', x: 12, y: 50, side: 'left', port: 'voltage', dir: 'in' },
-      { id: 'right', x: 88, y: 50, side: 'right', port: 'current', dir: 'out' },
-    ],
-    params: [
-      { id: 'resistance', label: 'Сопротивление', unit: UNITS.ohm, of: 'setting', min: 1, max: 100, step: 1, value: 10 },
-    ],
-    compute: ({ inputs, params }) => {
-      const voltage = inputs.voltage ?? null
-      const resistance = params.resistance ?? 1
-      if (voltage === null) return { current: null, power: null }
-
-      return { current: voltage / resistance, power: (voltage * voltage) / resistance }
-    },
-    view: ({ params, inputs }) => {
-      const voltage = inputs.voltage ?? null
-      const heat = voltage === null ? 0 : clamp(Math.abs(voltage) / 20, 0, 1)
-
-      return (
-        <g>
-          <rect x={28} y={38} width={44} height={24} rx={1} {...STROKE} />
-          <path d="M28 50H12M72 50h16" {...STROKE} />
-          
-          <rect x={28} y={38} width={44} height={24} rx={1} fill={ACCENT} opacity={heat * 0.35} />
-          <text x={50} y={78} textAnchor="middle" fontSize={11} fill={INK}>
-            {params.resistance ?? 0} Ом
-          </text>
-        </g>
-      )
-    },
-  },
-  {
     key: 'ammeter',
     domain: 'electricity',
     title: 'Амперметр',
-    hint: 'Показывает силу тока в цепи',
+    hint: 'Включается в цепь последовательно: ток входит в левую клемму и выходит из правой',
     ports: [
-      { id: 'in', label: 'Ток', unit: UNITS.ampere, dir: 'in' },
-      { id: 'out', label: 'Показание', unit: UNITS.ampere, dir: 'out' },
+      { id: 'in', label: 'Сила тока', unit: UNITS.ampere, dir: 'in', group: 'electrical', modifier: true, passthrough: true },
+      { id: 'out', label: 'Сила тока', unit: UNITS.ampere, dir: 'out', group: 'electrical' },
     ],
     terminals: [
       { id: 'left', x: 10, y: 50, side: 'left', port: 'in', dir: 'in' },
@@ -131,10 +87,11 @@ export const electricityComponents: ComponentSpec[] = [
     ],
     compute: ({ inputs, params }) => {
       const value = inputs.in ?? null
-      const limit = params.limit ?? 1
       if (value === null) return { out: null }
 
-      return { out: Math.abs(value) > limit ? Math.sign(value) * limit : value }
+      const limit = params.limit ?? 1
+      const shown = Math.abs(value) > limit ? Math.sign(value) * limit : value
+      return { out: shown }
     },
     view: ({ outputs, inputs, params }) => (
       <g>
@@ -146,13 +103,54 @@ export const electricityComponents: ComponentSpec[] = [
     ),
   },
   {
+    key: 'resistor',
+    domain: 'electricity',
+    title: 'Резистор',
+    hint: 'Через него течёт ток, на нём получается напряжение: U = I·R',
+    ports: [
+      { id: 'current', label: 'Сила тока', unit: UNITS.ampere, dir: 'in', group: 'electrical' },
+      { id: 'voltage', label: 'Напряжение', unit: UNITS.volt, dir: 'out', group: 'electrical' },
+      { id: 'power', label: 'Мощность', unit: UNITS.watt, dir: 'out', group: 'electrical', readonly: true },
+    ],
+    terminals: [
+      { id: 'left', x: 12, y: 50, side: 'left', port: 'current', dir: 'in' },
+      { id: 'right', x: 88, y: 50, side: 'right', port: 'voltage', dir: 'out' },
+    ],
+    params: [
+      { id: 'resistance', label: 'Сопротивление', unit: UNITS.ohm, of: 'setting', min: 1, max: 100, step: 1, value: 10 },
+    ],
+    compute: ({ inputs, params }) => {
+      const current = inputs.current ?? null
+      const resistance = params.resistance ?? 1
+      if (current === null) return { voltage: null, power: null }
+
+      const voltage = current * resistance
+      return { voltage, power: voltage * current }
+    },
+    view: ({ params, inputs }) => {
+      const current = inputs.current ?? null
+      const heat = current === null ? 0 : clamp(Math.abs(current) / 3, 0, 1)
+
+      return (
+        <g>
+          <rect x={28} y={38} width={44} height={24} rx={1} {...STROKE} />
+          <path d="M28 50H12M72 50h16" {...STROKE} />
+          <rect x={28} y={38} width={44} height={24} rx={1} fill={ACCENT} opacity={heat * 0.35} />
+          <text x={50} y={78} textAnchor="middle" fontSize={11} fill={INK}>
+            {params.resistance ?? 0} Ом
+          </text>
+        </g>
+      )
+    },
+  },
+  {
     key: 'voltmeter',
     domain: 'electricity',
     title: 'Вольтметр',
-    hint: 'Показывает напряжение на участке',
+    hint: 'Показывает напряжение на участке: подключается параллельно нагрузке',
     ports: [
-      { id: 'in', label: 'Напряжение', unit: UNITS.volt, dir: 'in' },
-      { id: 'out', label: 'Показание', unit: UNITS.volt, dir: 'out' },
+      { id: 'in', label: 'Напряжение', unit: UNITS.volt, dir: 'in', group: 'electrical', modifier: true, passthrough: true },
+      { id: 'out', label: 'Напряжение', unit: UNITS.volt, dir: 'out', group: 'electrical' },
     ],
     terminals: [
       { id: 'left', x: 10, y: 50, side: 'left', port: 'in', dir: 'in' },
@@ -163,9 +161,9 @@ export const electricityComponents: ComponentSpec[] = [
     ],
     compute: ({ inputs, params }) => {
       const value = inputs.in ?? null
-      const limit = params.limit ?? 1
       if (value === null) return { out: null }
 
+      const limit = params.limit ?? 1
       return { out: Math.abs(value) > limit ? Math.sign(value) * limit : value }
     },
     view: ({ outputs, inputs, params }) => (
@@ -181,10 +179,10 @@ export const electricityComponents: ComponentSpec[] = [
     key: 'lamp',
     domain: 'electricity',
     title: 'Лампа',
-    hint: 'Светится тем ярче, чем больше мощность',
+    hint: 'Светится тем ярче, чем больше мощность на ней',
     ports: [
-      { id: 'voltage', label: 'Напряжение', unit: UNITS.volt, dir: 'in' },
-      { id: 'power', label: 'Мощность', unit: UNITS.watt, dir: 'out' },
+      { id: 'voltage', label: 'Напряжение', unit: UNITS.volt, dir: 'in', group: 'electrical', modifier: true },
+      { id: 'power', label: 'Мощность', unit: UNITS.watt, dir: 'out', group: 'electrical' },
     ],
     terminals: [
       { id: 'left', x: 12, y: 50, side: 'left', port: 'voltage', dir: 'in' },
@@ -198,7 +196,6 @@ export const electricityComponents: ComponentSpec[] = [
       const voltage = inputs.voltage ?? null
       if (voltage === null) return { power: null }
 
-      
       const rated = params.power ?? 0
       const nominal = params.nominal ?? 0
       const share = nominal > 0 ? clamp(Math.abs(voltage) / nominal, 0, 1) : 0
@@ -212,7 +209,6 @@ export const electricityComponents: ComponentSpec[] = [
         <g>
           <circle cx={50} cy={50} r={28} {...STROKE} />
           <path d="M36 36l28 28M64 36L36 64" {...STROKE} />
-          
           <circle cx={50} cy={50} r={20 + load * 16} fill={ACCENT} opacity={load * 0.45} />
           <text x={50} y={88} textAnchor="middle" fontSize={11} fill={INK}>
             {outputs.power === null || outputs.power === undefined ? '—' : `${outputs.power.toFixed(1)} Вт`}
@@ -228,16 +224,13 @@ export const electricityComponents: ComponentSpec[] = [
     key: 'capacitor',
     domain: 'electricity',
     title: 'Конденсатор',
-    hint: 'Ёмкость цепи',
-    ports: [{ id: 'out', label: 'Ёмкость', unit: UNITS.microfarad, dir: 'out' }],
-    terminals: [
-      { id: 'left', x: 14, y: 50, side: 'left', port: 'out', dir: 'out' },
-      { id: 'right', x: 86, y: 50, side: 'right', port: 'out', dir: 'out' },
-    ],
+    hint: 'Ёмкость конденсатора',
+    ports: [{ id: 'out', label: 'Ёмкость', unit: UNITS.microfarad, dir: 'out', group: 'electrical' }],
+    terminals: [{ id: 'right', x: 86, y: 50, side: 'right', port: 'out', dir: 'out' }],
     params: [
       { id: 'capacitance', label: 'Ёмкость', unit: UNITS.microfarad, of: 'control', min: 1, max: 2000, step: 1, value: 100 },
     ],
-    compute: ({ params }) => ({ out: (params.capacitance ?? 0) * 1e-6 }),
+    compute: ({ params }) => ({ out: (params.capacitance ?? 0) * UNITS.microfarad.factor }),
     view: ({ params }) => (
       <g>
         <path d="M42 26v48M58 26v48" {...STROKE} />
@@ -252,12 +245,9 @@ export const electricityComponents: ComponentSpec[] = [
     key: 'coil',
     domain: 'electricity',
     title: 'Катушка индуктивности',
-    hint: 'Индуктивность по виткам и размерам',
-    ports: [{ id: 'out', label: 'Индуктивность', unit: UNITS.henry, dir: 'out' }],
-    terminals: [
-      { id: 'left', x: 14, y: 50, side: 'left', port: 'out', dir: 'out' },
-      { id: 'right', x: 86, y: 50, side: 'right', port: 'out', dir: 'out' },
-    ],
+    hint: 'Индуктивность по числу витков и размерам',
+    ports: [{ id: 'out', label: 'Индуктивность', unit: UNITS.henry, dir: 'out', group: 'electrical' }],
+    terminals: [{ id: 'right', x: 86, y: 50, side: 'right', port: 'out', dir: 'out' }],
     params: [
       { id: 'turns', label: 'Число витков', unit: UNITS.degree, of: 'control', min: 10, max: 500, step: 10, value: 100 },
       { id: 'diameter', label: 'Диаметр', unit: UNITS.millimetre, of: 'control', min: 5, max: 100, step: 1, value: 20 },
@@ -288,16 +278,16 @@ export const electricityComponents: ComponentSpec[] = [
     key: 'oscillator',
     domain: 'electricity',
     title: 'Колебательный контур',
-    hint: 'Частота по формуле Томпсона',
+    hint: 'Входы — индуктивность и ёмкость, выход один: частота по формуле Томпсона',
     ports: [
-      { id: 'inductance', label: 'Индуктивность', unit: UNITS.henry, dir: 'in' },
-      { id: 'capacitance', label: 'Ёмкость', unit: UNITS.farad, dir: 'in' },
-      { id: 'out', label: 'Частота', unit: UNITS.hertz, dir: 'out' },
+      { id: 'inductance', label: 'Индуктивность', unit: UNITS.henry, dir: 'in', group: 'electrical' },
+      { id: 'capacitance', label: 'Ёмкость', unit: UNITS.farad, dir: 'in', group: 'electrical' },
+      { id: 'out', label: 'Частота', unit: UNITS.hertz, dir: 'out', group: 'electrical', readonly: true },
     ],
     terminals: [
-      { id: 'left', x: 12, y: 40, side: 'left', port: 'inductance', dir: 'in' },
-      { id: 'bottom', x: 50, y: 88, side: 'down', port: 'capacitance', dir: 'in' },
-      { id: 'right', x: 88, y: 40, side: 'right', port: 'out', dir: 'out' },
+      { id: 'bottom', x: 50, y: 88, side: 'down', port: 'inductance', dir: 'in' },
+      { id: 'left', x: 12, y: 40, side: 'left', port: 'capacitance', dir: 'in' },
+      { id: 'right', x: 88, y: 50, side: 'right', port: 'out', dir: 'out' },
     ],
     params: [],
     compute: ({ inputs }) => {
@@ -333,17 +323,23 @@ export const mechanicsComponents: ComponentSpec[] = [
     key: 'dynamometer',
     domain: 'mechanics',
     title: 'Динамометр',
-    hint: 'Показывает приложенную силу',
-    ports: [{ id: 'out', label: 'Сила', unit: UNITS.newton, dir: 'out' }],
+    hint: 'Задаёт силу и показывает её значение',
+    ports: [
+      { id: 'out', label: 'Сила', unit: UNITS.newton, dir: 'out', group: 'mechanical' },
+      { id: 'stretch', label: 'Растяжение', unit: UNITS.metre, dir: 'out', group: 'geometric' },
+    ],
     terminals: [
-      { id: 'left', x: 20, y: 50, side: 'left', port: 'out', dir: 'out' },
       { id: 'right', x: 80, y: 50, side: 'right', port: 'out', dir: 'out' },
+      { id: 'top', x: 50, y: 12, side: 'up', port: 'stretch', dir: 'out' },
     ],
     params: [
       { id: 'force', label: 'Приложенная сила', unit: UNITS.newton, of: 'control', min: 0, max: 20, step: 0.05, value: 2 },
       { id: 'limit', label: 'Предел измерения', unit: UNITS.newton, of: 'setting', min: 1, max: 30, step: 1, value: 10 },
     ],
-    compute: ({ params }) => ({ out: params.force ?? 0 }),
+    compute: ({ params }) => {
+      const force = params.force ?? 0
+      return { out: force, stretch: force / 100 }
+    },
     view: ({ params }) => {
       const share = clamp((params.force ?? 0) / (params.limit ?? 1), 0, 1)
 
@@ -362,73 +358,13 @@ export const mechanicsComponents: ComponentSpec[] = [
     },
   },
   {
-    key: 'block',
-    domain: 'mechanics',
-    title: 'Брусок на поверхности',
-    hint: 'Едет, когда сила превысит трение',
-    ports: [
-      { id: 'force', label: 'Сила', unit: UNITS.newton, dir: 'in' },
-      { id: 'speed', label: 'Скорость', unit: UNITS.metrePerSecond, dir: 'out' },
-      { id: 'friction', label: 'Сила трения', unit: UNITS.newton, dir: 'out' },
-    ],
-    terminals: [
-      { id: 'left', x: 18, y: 50, side: 'left', port: 'force', dir: 'in' },
-    ],
-    params: [
-      { id: 'mass', label: 'Масса', unit: UNITS.kilogram, of: 'setting', min: 0.05, max: 5, step: 0.05, value: 0.5 },
-      { id: 'mu', label: 'Коэффициент трения', unit: UNITS.degree, of: 'setting', min: 0, max: 1, step: 0.01, value: 0.3 },
-    ],
-    compute: ({ inputs, params }) => {
-      const force = inputs.force ?? null
-      const mass = params.mass ?? 1
-      const mu = params.mu ?? 0
-
-      const friction = mu * mass * 9.8
-      if (force === null || mass === 0) return { speed: null, friction }
-
-      
-      const active = Math.max(0, force - friction)
-      const speed = active / mass
-
-      return { speed, friction }
-    },
-    view: ({ outputs, params, time, running }) => {
-      const speed = outputs.speed ?? 0
-      const distance = running ? speed * time : 0
-      const offset = clamp((distance * 8) % 60, 0, 34)
-
-      return (
-        <g>
-          <path d="M6 72h88" {...STROKE} />
-          <path d="M14 72l-6 7M30 72l-6 7M46 72l-6 7M62 72l-6 7M78 72l-6 7M94 72l-6 7" {...STROKE} opacity={0.5} />
-          <rect x={10 + offset} y={46} width={34} height={26} rx={2} {...STROKE} fill="var(--lab-paper, #fff)" />
-          <text x={27 + offset} y={63} textAnchor="middle" fontSize={9} fill={INK}>
-            {params.mass ?? 0} кг
-          </text>
-          {speed > 0 ? (
-            <path
-              d={`M${48 + offset} 58h14m0 0l-5-4m5 4l-5 4`}
-              fill="none"
-              stroke={ACCENT}
-              strokeWidth={2.5}
-              strokeLinecap="round"
-            />
-          ) : null}
-          <text x={50} y={94} textAnchor="middle" fontSize={11} fill={INK}>
-            {speed > 0 ? `${speed.toFixed(2)} м/с` : 'покой'}
-          </text>
-        </g>
-      )
-    },
-  },
-  {
     key: 'spring',
     domain: 'mechanics',
     title: 'Пружина',
-    hint: 'Сила упругости F = k·x',
+    hint: 'Вход — растяжение, выход один: сила упругости F = k·x',
     ports: [
-      { id: 'stretch', label: 'Растяжение', unit: UNITS.metre, dir: 'in' },
-      { id: 'out', label: 'Сила упругости', unit: UNITS.newton, dir: 'out' },
+      { id: 'stretch', label: 'Растяжение', unit: UNITS.metre, dir: 'in', group: 'geometric' },
+      { id: 'out', label: 'Сила упругости', unit: UNITS.newton, dir: 'out', group: 'mechanical' },
     ],
     terminals: [
       { id: 'left', x: 16, y: 50, side: 'left', port: 'stretch', dir: 'in' },
@@ -464,11 +400,71 @@ export const mechanicsComponents: ComponentSpec[] = [
     },
   },
   {
+    key: 'block',
+    domain: 'mechanics',
+    title: 'Брусок на поверхности',
+    hint: 'Вход — сила, выходы: скорость и пройденный путь',
+    ports: [
+      { id: 'force', label: 'Сила', unit: UNITS.newton, dir: 'in', group: 'mechanical' },
+      { id: 'speed', label: 'Скорость', unit: UNITS.metrePerSecond, dir: 'out', group: 'optical' },
+      { id: 'distance', label: 'Пройденный путь', unit: UNITS.metre, dir: 'out', group: 'geometric', readonly: true },
+    ],
+    terminals: [
+      { id: 'left', x: 18, y: 50, side: 'left', port: 'force', dir: 'in' },
+      { id: 'right', x: 84, y: 62, side: 'right', port: 'speed', dir: 'out' },
+    ],
+    params: [
+      { id: 'mass', label: 'Масса', unit: UNITS.kilogram, of: 'setting', min: 0.05, max: 5, step: 0.05, value: 0.5 },
+      { id: 'mu', label: 'Коэффициент трения', unit: UNITS.degree, of: 'setting', min: 0, max: 1, step: 0.01, value: 0.3 },
+    ],
+    compute: ({ inputs, params, time }) => {
+      const force = inputs.force ?? null
+      const mass = params.mass ?? 1
+      const mu = params.mu ?? 0
+
+      if (force === null || mass === 0) return { speed: null, distance: null }
+
+      const friction = mu * mass * 9.8
+      const active = Math.max(0, force - friction)
+      const speed = active / mass
+
+      return { speed, distance: speed * time }
+    },
+    view: ({ outputs, params, time, running }) => {
+      const speed = outputs.speed ?? 0
+      const distance = running ? speed * time : 0
+      const offset = clamp((distance * 8) % 60, 0, 34)
+
+      return (
+        <g>
+          <path d="M6 72h88" {...STROKE} />
+          <path d="M14 72l-6 7M30 72l-6 7M46 72l-6 7M62 72l-6 7M78 72l-6 7M94 72l-6 7" {...STROKE} opacity={0.5} />
+          <rect x={10 + offset} y={46} width={34} height={26} rx={2} {...STROKE} fill="var(--lab-paper, #fff)" />
+          <text x={27 + offset} y={63} textAnchor="middle" fontSize={9} fill={INK}>
+            {params.mass ?? 0} кг
+          </text>
+          {speed > 0 ? (
+            <path
+              d={`M${48 + offset} 58h14m0 0l-5-4m5 4l-5 4`}
+              fill="none"
+              stroke={ACCENT}
+              strokeWidth={2.5}
+              strokeLinecap="round"
+            />
+          ) : null}
+          <text x={50} y={94} textAnchor="middle" fontSize={11} fill={INK}>
+            {speed > 0 ? `${speed.toFixed(2)} м/с` : 'покой'}
+          </text>
+        </g>
+      )
+    },
+  },
+  {
     key: 'pendulum',
     domain: 'mechanics',
     title: 'Нитяной маятник',
-    hint: 'Период T = 2π√(l/g)',
-    ports: [{ id: 'out', label: 'Период', unit: UNITS.second, dir: 'out' }],
+    hint: 'Выход — период колебаний T = 2π√(l/g)',
+    ports: [{ id: 'out', label: 'Период', unit: UNITS.second, dir: 'out', group: 'time' }],
     terminals: [{ id: 'top', x: 50, y: 12, side: 'up', port: 'out', dir: 'out' }],
     params: [
       { id: 'length', label: 'Длина нити', unit: UNITS.centimetre, of: 'control', min: 10, max: 300, step: 5, value: 100 },
@@ -495,7 +491,6 @@ export const mechanicsComponents: ComponentSpec[] = [
           <path d="M22 14h56" {...STROKE} />
           <line x1={50} y1={14} x2={x} y2={y} {...STROKE} />
           <circle cx={x} cy={y} r={9} {...STROKE} fill="var(--lab-paper, #fff)" />
-          
           <path
             d={`M${50 - Math.sin((amplitude * Math.PI) / 180) * rodLength} ${14 + Math.cos((amplitude * Math.PI) / 180) * rodLength}
                 A ${rodLength} ${rodLength} 0 0 1 ${50 + Math.sin((amplitude * Math.PI) / 180) * rodLength} ${14 + Math.cos((amplitude * Math.PI) / 180) * rodLength}`}
@@ -516,28 +511,50 @@ export const mechanicsComponents: ComponentSpec[] = [
 
 export const thermalComponents: ComponentSpec[] = [
   {
+    key: 'timer',
+    domain: 'thermal',
+    title: 'Секундомер',
+    hint: 'Задаёт время опыта. Его можно соединить с любым прибором, которому нужно время',
+    ports: [{ id: 'out', label: 'Время опыта', unit: UNITS.second, dir: 'out', group: 'time', modifier: true }],
+    terminals: [{ id: 'right', x: 80, y: 50, side: 'right', port: 'out', dir: 'out' }],
+    params: [
+      { id: 'duration', label: 'Время опыта', unit: UNITS.second, of: 'control', min: 0, max: 1800, step: 5, value: 60 },
+    ],
+    compute: ({ params }) => ({ out: params.duration ?? 0 }),
+    view: ({ params }) => (
+      <g>
+        <circle cx={50} cy={50} r={30} {...STROKE} />
+        <path d="M50 50V32" {...STROKE} />
+        <path d="M50 50h13" {...STROKE} />
+        <path d="M42 12h16M50 12v8" {...STROKE} />
+        <text x={50} y={94} textAnchor="middle" fontSize={11} fill={INK}>
+          {params.duration ?? 0} с
+        </text>
+      </g>
+    ),
+  },
+  {
     key: 'heater',
     domain: 'thermal',
     title: 'Нагреватель',
-    hint: 'Превращает напряжение в тепловую мощность',
+    hint: 'Вход — сила тока, выходы: мощность и тепло',
     ports: [
-      { id: 'voltage', label: 'Напряжение', unit: UNITS.volt, dir: 'in' },
-      { id: 'power', label: 'Мощность', unit: UNITS.watt, dir: 'out' },
-      { id: 'current', label: 'Сила тока', unit: UNITS.ampere, dir: 'out' },
+      { id: 'current', label: 'Сила тока', unit: UNITS.ampere, dir: 'in', group: 'electrical' },
+      { id: 'power', label: 'Мощность', unit: UNITS.watt, dir: 'out', group: 'electrical' },
     ],
     terminals: [
-      { id: 'left', x: 12, y: 50, side: 'left', port: 'voltage', dir: 'in' },
+      { id: 'left', x: 12, y: 50, side: 'left', port: 'current', dir: 'in' },
       { id: 'right', x: 88, y: 50, side: 'right', port: 'power', dir: 'out' },
     ],
     params: [
       { id: 'resistance', label: 'Сопротивление спирали', unit: UNITS.ohm, of: 'setting', min: 1, max: 200, step: 1, value: 10 },
     ],
     compute: ({ inputs, params }) => {
-      const voltage = inputs.voltage ?? null
+      const current = inputs.current ?? null
       const resistance = params.resistance ?? 1
-      if (voltage === null || resistance === 0) return { power: null, current: null }
+      if (current === null || resistance === 0) return { power: null }
 
-      return { power: (voltage * voltage) / resistance, current: voltage / resistance }
+      return { power: current * current * resistance }
     },
     view: ({ outputs, time, running }) => {
       const power = outputs.power ?? 0
@@ -560,15 +577,16 @@ export const thermalComponents: ComponentSpec[] = [
     key: 'body',
     domain: 'thermal',
     title: 'Тело',
-    hint: 'Нагревается за время опыта',
+    hint: 'Входы — мощность нагрева и время; выход — температура тела',
     ports: [
-      { id: 'power', label: 'Мощность нагрева', unit: UNITS.watt, dir: 'in' },
-      { id: 'time', label: 'Время нагрева', unit: UNITS.second, dir: 'in' },
-      { id: 'out', label: 'Температура', unit: UNITS.celsius, dir: 'out' },
+      { id: 'power', label: 'Мощность нагрева', unit: UNITS.watt, dir: 'in', group: 'electrical', modifier: true },
+      { id: 'time', label: 'Время нагрева', unit: UNITS.second, dir: 'in', group: 'time', modifier: true },
+      { id: 'out', label: 'Температура', unit: UNITS.celsius, dir: 'out', group: 'thermal' },
     ],
     terminals: [
       { id: 'left', x: 14, y: 50, side: 'left', port: 'power', dir: 'in' },
       { id: 'bottom', x: 50, y: 86, side: 'down', port: 'time', dir: 'in' },
+      { id: 'right', x: 84, y: 50, side: 'right', port: 'out', dir: 'out' },
     ],
     params: [
       { id: 'mass', label: 'Масса', unit: UNITS.kilogram, of: 'setting', min: 0.01, max: 5, step: 0.01, value: 0.05 },
@@ -579,21 +597,19 @@ export const thermalComponents: ComponentSpec[] = [
       const mass = params.mass ?? 0
       const capacity = params.capacity ?? 0
       const start = params.start ?? 0
-
-      
       const celsiusOffset = UNITS.celsius.offset ?? 0
       const base = start + celsiusOffset
 
       if (mass === 0 || capacity === 0) return { out: null }
 
-      
       const power = inputs.power ?? 0
       const duration = inputs.time ?? time
 
       return { out: base + (power * duration) / (capacity * mass) }
     },
     view: ({ outputs, params, time, running }) => {
-      const temperature = (outputs.out ?? (params.start ?? 20) + (UNITS.celsius.offset ?? 0)) - (UNITS.celsius.offset ?? 0)
+      const celsiusOffset = UNITS.celsius.offset ?? 0
+      const temperature = (outputs.out ?? (params.start ?? 20) + celsiusOffset) - celsiusOffset
       const heat = clamp((temperature - 20) / 60, 0, 1)
       const pulse = running ? 1 + 0.02 * Math.sin(time * 3) : 1
 
@@ -624,10 +640,10 @@ export const thermalComponents: ComponentSpec[] = [
     key: 'thermometer',
     domain: 'thermal',
     title: 'Термометр',
-    hint: 'Показывает температуру тела',
+    hint: 'Вход — температура, выход один: показание прибора',
     ports: [
-      { id: 'in', label: 'Температура', unit: UNITS.celsius, dir: 'in' },
-      { id: 'out', label: 'Показание', unit: UNITS.celsius, dir: 'out' },
+      { id: 'in', label: 'Температура', unit: UNITS.celsius, dir: 'in', group: 'thermal' },
+      { id: 'out', label: 'Показание', unit: UNITS.celsius, dir: 'out', group: 'thermal' },
     ],
     terminals: [
       { id: 'left', x: 20, y: 50, side: 'left', port: 'in', dir: 'in' },
@@ -640,11 +656,13 @@ export const thermalComponents: ComponentSpec[] = [
       const value = inputs.in ?? null
       if (value === null) return { out: null }
 
-      return { out: Math.min(value, params.limit ?? value) }
+      return { out: Math.min(value, (params.limit ?? 100) + (UNITS.celsius.offset ?? 0)) }
     },
     view: ({ outputs, params }) => {
+      const celsiusOffset = UNITS.celsius.offset ?? 0
       const limit = params.limit ?? 100
-      const value = outputs.out ?? null
+      const base = outputs.out ?? null
+      const value = base === null ? null : base - celsiusOffset
       const share = value === null ? 0 : clamp((value - 0) / limit, 0, 1)
 
       return (
@@ -666,20 +684,18 @@ export const opticsComponents: ComponentSpec[] = [
     key: 'laser',
     domain: 'optics',
     title: 'Источник луча',
-    hint: 'Световой луч с длиной волны',
+    hint: 'Выход — угол луча; длина волны задаётся параметром',
     ports: [
-      { id: 'angle', label: 'Угол', unit: UNITS.degree, dir: 'out' },
-      { id: 'out', label: 'Длина волны', unit: UNITS.nanometre, dir: 'out' },
+      { id: 'angle', label: 'Угол луча', unit: UNITS.degree, dir: 'out', group: 'optical' },
+      { id: 'wavelength', label: 'Длина волны', unit: UNITS.nanometre, dir: 'out', group: 'geometric', readonly: true },
     ],
     terminals: [{ id: 'right', x: 88, y: 50, side: 'right', port: 'angle', dir: 'out' }],
     params: [
       { id: 'wavelength', label: 'Длина волны', unit: UNITS.nanometre, of: 'control', min: 380, max: 780, step: 5, value: 650 },
-      { id: 'angle', label: 'Угол', unit: UNITS.degree, of: 'control', min: 0, max: 80, step: 1, value: 0 },
-    ],
-    compute: ({ params }) => ({
-      
-      out: (params.wavelength ?? 0) * UNITS.nanometre.factor,
+      { id: 'angle', label: 'Угол', unit: UNITS.degree, of: 'control', min: 0, max: 80, step: 1, value: 30 },
+    ],    compute: ({ params }) => ({
       angle: params.angle ?? 0,
+      wavelength: (params.wavelength ?? 0) * UNITS.nanometre.factor,
     }),
     view: ({ params }) => (
       <g>
@@ -692,14 +708,58 @@ export const opticsComponents: ComponentSpec[] = [
     ),
   },
   {
+    key: 'mirror',
+    domain: 'optics',
+    title: 'Плоское зеркало',
+    hint: 'Вход — угол падения, выход — угол отражения',
+    ports: [
+      { id: 'angle', label: 'Угол падения', unit: UNITS.degree, dir: 'in', group: 'optical' },
+      { id: 'out', label: 'Угол отражения', unit: UNITS.degree, dir: 'out', group: 'optical' },
+    ],
+    terminals: [
+      { id: 'left', x: 18, y: 40, side: 'left', port: 'angle', dir: 'in' },
+      { id: 'right', x: 82, y: 60, side: 'right', port: 'out', dir: 'out' },
+    ],
+    params: [
+      { id: 'tilt', label: 'Наклон зеркала', unit: UNITS.degree, of: 'control', min: -45, max: 45, step: 1, value: 0 },
+    ],
+    compute: ({ inputs, params }) => {
+      const angle = inputs.angle ?? null
+      if (angle === null) return { out: null }
+
+      return { out: clamp(Math.abs(angle) + 2 * (params.tilt ?? 0), 0, 89) }
+    },
+    view: ({ params }) => {
+      const tilt = params.tilt ?? 0
+      const radians = (tilt * Math.PI) / 180
+
+      return (
+        <g>
+          <line
+            x1={50 - Math.sin(radians) * 34}
+            y1={50 + Math.cos(radians) * 34}
+            x2={50 + Math.sin(radians) * 34}
+            y2={50 - Math.cos(radians) * 34}
+            {...STROKE}
+          />
+          <path d="M12 12h24" stroke={ACCENT} strokeWidth={2} opacity={0.5} />
+          <path d="M64 84h24" stroke={ACCENT} strokeWidth={2} opacity={0.5} />
+          <text x={50} y={96} textAnchor="middle" fontSize={10} fill={INK}>
+            {tilt}°
+          </text>
+        </g>
+      )
+    },
+  },
+  {
     key: 'lens',
     domain: 'optics',
     title: 'Тонкая линза',
-    hint: 'Строит изображение: 1/f = 1/a + 1/b',
+    hint: 'Вход — расстояние до предмета, выходы: расстояние до изображения и увеличение',
     ports: [
-      { id: 'distance', label: 'Расстояние до предмета', unit: UNITS.metre, dir: 'in' },
-      { id: 'image', label: 'Расстояние до изображения', unit: UNITS.metre, dir: 'out' },
-      { id: 'magnification', label: 'Увеличение', unit: UNITS.degree, dir: 'out' },
+      { id: 'distance', label: 'Расстояние до предмета', unit: UNITS.metre, dir: 'in', group: 'geometric' },
+      { id: 'image', label: 'Расстояние до изображения', unit: UNITS.metre, dir: 'out', group: 'geometric' },
+      { id: 'magnification', label: 'Увеличение', unit: UNITS.degree, dir: 'out', group: 'other', readonly: true },
     ],
     terminals: [
       { id: 'left', x: 16, y: 50, side: 'left', port: 'distance', dir: 'in' },
@@ -728,7 +788,7 @@ export const opticsComponents: ComponentSpec[] = [
           <ellipse cx={50} cy={50} rx={7} ry={26} {...STROKE} />
           <line x1={8} y1={50} x2={92} y2={50} stroke="currentColor" strokeWidth={1} opacity={0.3} />
           <path d={`M8 30h42L50 50l${imagePixels} ${image === null || image < 0 ? -20 : 20}`} fill="none" stroke={ACCENT} strokeWidth={2} />
-          <path d={`M8 70h42`} fill="none" stroke={ACCENT} strokeWidth={2} opacity={0.6} />
+          <path d="M8 70h42" fill="none" stroke={ACCENT} strokeWidth={2} opacity={0.6} />
           <circle cx={50 + focusPixels} cy={50} r={2.5} fill={ACCENT} />
           <text x={50} y={92} textAnchor="middle" fontSize={10} fill={INK}>
             f = {focus.toFixed(2)} м
@@ -738,72 +798,24 @@ export const opticsComponents: ComponentSpec[] = [
     },
   },
   {
-    key: 'mirror',
-    domain: 'optics',
-    title: 'Плоское зеркало',
-    hint: 'Угол отражения равен углу падения',
-    ports: [
-      { id: 'angle', label: 'Угол падения', unit: UNITS.degree, dir: 'in' },
-      { id: 'out', label: 'Угол отражения', unit: UNITS.degree, dir: 'out' },
-    ],
-    terminals: [
-      { id: 'left', x: 18, y: 40, side: 'left', port: 'angle', dir: 'in' },
-      { id: 'right', x: 82, y: 60, side: 'right', port: 'out', dir: 'out' },
-    ],
-    params: [
-      { id: 'tilt', label: 'Наклон зеркала', unit: UNITS.degree, of: 'control', min: -45, max: 45, step: 1, value: 0 },
-    ],
-    compute: ({ inputs, params }) => {
-      const angle = inputs.angle ?? null
-      if (angle === null) return { out: null }
-
-      
-      const glint = Math.max(Math.abs(angle), 0.5)
-
-      return { out: clamp(glint + 2 * (params.tilt ?? 0), 0, 89) }
-    },
-    view: ({ params }) => {
-      const tilt = params.tilt ?? 0
-      const radians = (tilt * Math.PI) / 180
-
-      return (
-        <g>
-          <line
-            x1={50 - Math.sin(radians) * 34}
-            y1={50 + Math.cos(radians) * 34}
-            x2={50 + Math.sin(radians) * 34}
-            y2={50 - Math.cos(radians) * 34}
-            {...STROKE}
-          />
-          <path d="M12 12h24" stroke={ACCENT} strokeWidth={2} opacity={0.5} />
-          <path d="M64 84h24" stroke={ACCENT} strokeWidth={2} opacity={0.5} />
-          <text x={50} y={96} textAnchor="middle" fontSize={10} fill={INK}>
-            {tilt}°
-          </text>
-        </g>
-      )
-    },
-  },
-  {
     key: 'screen',
     domain: 'optics',
     title: 'Экран',
-    hint: 'Ловит изображение и показывает резкость',
+    hint: 'Вход — расстояние до изображения, выход — резкость картинки',
     ports: [
-      { id: 'image', label: 'Расстояние до изображения', unit: UNITS.metre, dir: 'in' },
-      { id: 'position', label: 'Положение экрана', unit: UNITS.metre, dir: 'in' },
-      { id: 'out', label: 'Резкость', unit: UNITS.degree, dir: 'out' },
+      { id: 'image', label: 'Расстояние до изображения', unit: UNITS.metre, dir: 'in', group: 'geometric' },
+      { id: 'out', label: 'Резкость', unit: UNITS.degree, dir: 'out', group: 'other' },
     ],
     terminals: [
-      { id: 'left', x: 16, y: 40, side: 'left', port: 'image', dir: 'in' },
-      { id: 'bottom', x: 50, y: 84, side: 'down', port: 'position', dir: 'in' },
+      { id: 'left', x: 16, y: 46, side: 'left', port: 'image', dir: 'in' },
+      { id: 'right', x: 84, y: 54, side: 'right', port: 'out', dir: 'out' },
     ],
     params: [
       { id: 'position', label: 'Положение экрана', unit: UNITS.metre, of: 'control', min: 0.1, max: 3, step: 0.01, value: 0.4 },
     ],
     compute: ({ inputs, params }) => {
       const image = inputs.image ?? null
-      const position = inputs.position ?? params.position ?? null
+      const position = params.position ?? null
       if (image === null || position === null) return { out: null }
 
       const shift = position - image
@@ -817,7 +829,6 @@ export const opticsComponents: ComponentSpec[] = [
       return (
         <g>
           <rect x={30} y={20} width={40} height={56} rx={3} {...STROKE} />
-          
           <circle cx={50} cy={48} r={4 + blur * 14} fill={ACCENT} opacity={0.35 + (1 - blur) * 0.5} />
           <text x={50} y={90} textAnchor="middle" fontSize={10} fill={INK}>
             {outputs.out === null || outputs.out === undefined ? '—' : `${sharpness.toFixed(0)}%`}

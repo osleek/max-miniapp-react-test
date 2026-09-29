@@ -37,8 +37,7 @@ describe('полотно стенда', () => {
 
     expect(markup).toContain('<circle')
     expect(markup).toContain('Лампа')
-    expect(markup).toContain('Источник питания')
-  })
+    expect(markup).toContain('Источник питания')  })
 
   it('рисует провод между клеммами', () => {
     const markup = render(bench())

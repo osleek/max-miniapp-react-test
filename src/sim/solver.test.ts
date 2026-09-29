@@ -63,6 +63,19 @@ function meter(): ComponentSpec {
   }
 }
 
+function thermalSink(): ComponentSpec {
+  return {
+    key: 'test-thermal',
+    domain: 'thermal',
+    title: 'Температура',
+    hint: 'Принимает только температуру',
+    ports: [{ id: 'plus', label: 'Температура', unit: UNITS.celsius, dir: 'in', group: 'thermal' }],
+    terminals: [{ id: 'plus', x: 12, y: 50, side: 'left', port: 'plus', dir: 'in' }],
+    params: [],
+    compute: () => ({}),
+  }
+}
+
 function prepare() {
   resetRegistry()
   registerComponent(source())
@@ -88,16 +101,17 @@ describe('проверка схемы', () => {
     expect(validateScheme(chain)).toEqual([])
   })
 
-  it('ловит несовместимые величины: вольт в ом', () => {
+  it('ловит несовместимые величины: ток в температуру', () => {
     prepare()
+    registerComponent(thermalSink())
 
     const bad: Scheme = {
       components: [
         { id: 'r1', key: 'test-resistor' },
-        { id: 'r2', key: 'test-resistor' },
+        { id: 't1', key: 'test-thermal' },
       ],
       links: [
-        { id: 'x', from: { component: 'r1', terminal: 'right' }, to: { component: 'r2', terminal: 'left' } },
+        { id: 'x', from: { component: 'r1', terminal: 'right' }, to: { component: 't1', terminal: 'plus' } },
       ],
     }
 
@@ -139,10 +153,12 @@ describe('соединение клемм', () => {
 
   it('запрещает соединять разные величины и объясняет почему', () => {
     prepare()
-    const result = canConnect(resistor(), 'right', resistor(), 'left')
+    registerComponent(thermalSink())
+
+    const result = canConnect(resistor(), 'right', thermalSink(), 'plus')
 
     expect(result.ok).toBe(false)
-    if (!result.ok) expect(result.reason).toContain('Несовместимые величины')
+    if (!result.ok) expect(result.reason).toContain('Разные величины')
   })
 })
 
@@ -172,14 +188,15 @@ describe('расчёт схемы', () => {
 
   it('не считает схему с несовместимым соединением', () => {
     prepare()
+    registerComponent(thermalSink())
 
     const bad: Scheme = {
       components: [
         { id: 'r1', key: 'test-resistor' },
-        { id: 'r2', key: 'test-resistor' },
+        { id: 't1', key: 'test-thermal' },
       ],
       links: [
-        { id: 'x', from: { component: 'r1', terminal: 'right' }, to: { component: 'r2', terminal: 'left' } },
+        { id: 'x', from: { component: 'r1', terminal: 'right' }, to: { component: 't1', terminal: 'plus' } },
       ],
     }
 

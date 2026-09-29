@@ -1,4 +1,4 @@
-import { compatible, type Unit } from '@/physics/quantity'
+import { compatible, groupForDimension, type Unit } from '@/physics/quantity'
 import {
   defaultParams,
   inputsOf,
@@ -59,6 +59,24 @@ export function portKey(componentId: string, portId: string): string {
   return `${componentId}:${portId}`
 }
 
+export function groupOfPort(port: { unit: Unit; group?: string }): string {
+  return port.group ?? groupForDimension(port.unit.dimension)
+}
+
+export const CONNECTABLE_GROUPS: Record<string, string[]> = {
+  electrical: ['electrical'],
+  thermal: ['thermal'],
+  mechanical: ['mechanical', 'geometric'],
+  geometric: ['geometric', 'mechanical'],
+  optical: ['optical', 'geometric'],
+  time: ['time'],
+  other: ['other'],
+}
+
+function isModifier(port: { modifier?: boolean }): boolean {
+  return Boolean(port.modifier)
+}
+
 interface Prepared {
   component: SchemeComponent
   spec: ComponentSpec
@@ -114,15 +132,60 @@ export function validateScheme(scheme: Scheme): SolveIssue[] {
       continue
     }
 
-    const source = fromPort.dir === 'out' ? fromPort : toPort
-    const target = fromPort.dir === 'out' ? toPort : fromPort
+    const output = fromPort.dir === 'out' ? fromPort : toPort
+    const input = fromPort.dir === 'out' ? toPort : fromPort
 
-    if (!compatible(source.unit, target.unit)) {
-      issues.push({ kind: 'incompatible', linkId: link.id, from: source.unit, to: target.unit })
+    if (!portsCompatible(output, input)) {
+      issues.push({ kind: 'incompatible', linkId: link.id, from: output.unit, to: input.unit })
     }
   }
 
   return issues
+}
+
+export function portsCompatible(
+  output: { unit: Unit; group?: string; modifier?: boolean },
+  input: { unit: Unit; group?: string; modifier?: boolean },
+): boolean {
+  if (isModifier(input)) return true
+
+  if (compatible(output.unit, input.unit)) return true
+
+  const outputGroup = groupOfPort(output)
+  const inputGroup = groupOfPort(input)
+
+  if (outputGroup === inputGroup) return true
+
+  return (CONNECTABLE_GROUPS[outputGroup] ?? []).includes(inputGroup)
+}
+
+export function connectProblem(
+  fromSpec: ComponentSpec,
+  fromTerminalId: string,
+  toSpec: ComponentSpec,
+  toTerminalId: string,
+): string | null {
+  const fromPort = portOfTerminal(fromSpec, fromTerminalId)
+  const toPort = portOfTerminal(toSpec, toTerminalId)
+
+  if (!fromPort || !toPort) return 'У клеммы не указана величина'
+
+  if (fromPort.dir === 'in' && toPort.dir === 'in') {
+    return 'Обе клеммы — входы. Провод идёт от выхода к входу: начните с зелёной клеммы'
+  }
+
+  if (fromPort.dir === 'out' && toPort.dir === 'out') {
+    return 'Обе клеммы — выходы. Провод идёт от выхода к входу: закончите на синей клемме'
+  }
+
+  const output = fromPort.dir === 'out' ? fromPort : toPort
+  const input = fromPort.dir === 'out' ? toPort : fromPort
+
+  if (!portsCompatible(output, input)) {
+    return `Разные величины: ${output.label} (${output.unit.symbol}) и ${input.label} (${input.unit.symbol}). Соединяйте величины одной группы: например напряжение, ток и сопротивление`
+  }
+
+  return null
 }
 
 export function canConnect(
@@ -131,30 +194,8 @@ export function canConnect(
   toSpec: ComponentSpec,
   toTerminalId: string,
 ): { ok: true } | { ok: false; reason: string } {
-  const fromPort = portOfTerminal(fromSpec, fromTerminalId)
-  const toPort = portOfTerminal(toSpec, toTerminalId)
-
-  if (!fromPort || !toPort) return { ok: false, reason: 'У клеммы не указан порт' }
-
-  if (fromPort.dir === 'in' && toPort.dir === 'in') {
-    return { ok: false, reason: 'Оба вывода — входы: провод должен идти от выхода к входу' }
-  }
-
-  if (fromPort.dir === 'out' && toPort.dir === 'out') {
-    return { ok: false, reason: 'Оба вывода — выходы: провод должен идти от выхода к входу' }
-  }
-
-  const source = fromPort.dir === 'out' ? fromPort : toPort
-  const target = fromPort.dir === 'out' ? toPort : fromPort
-
-  if (!compatible(source.unit, target.unit)) {
-    return {
-      ok: false,
-      reason: `Несовместимые величины: ${source.unit.quantity} (${source.unit.symbol}) и ${target.unit.quantity} (${target.unit.symbol})`,
-    }
-  }
-
-  return { ok: true }
+  const problem = connectProblem(fromSpec, fromTerminalId, toSpec, toTerminalId)
+  return problem ? { ok: false, reason: problem } : { ok: true }
 }
 
 function orderOf(scheme: Scheme, prepared: Map<string, Prepared>): { order: string[]; cycle: string[] } {
@@ -233,7 +274,8 @@ export function solveScheme(scheme: Scheme, options: SolveOptions = {}): SolveRe
     if (!fromPort || !toPort) continue
     if (fromPort.dir !== 'out' || toPort.dir !== 'in') continue
 
-    incomingLink.set(`${link.to.component}:${toPort.id}`, link)
+    const key = `${link.to.component}:${toPort.id}`
+    if (!incomingLink.has(key)) incomingLink.set(key, link)
   }
 
   const computeOnce = (id: string) => {
@@ -243,8 +285,10 @@ export function solveScheme(scheme: Scheme, options: SolveOptions = {}): SolveRe
     const inputs: Record<string, number | null> = {}
     for (const port of inputsOf(item.spec)) {
       const link = incomingLink.get(`${id}:${port.id}`)
+
+      const passthroughSelf = item.spec.ports.find((entry) => entry.passthrough && entry.dir === 'in')
       if (!link) {
-        inputs[port.id] = null
+        inputs[port.id] = passthroughSelf ? (values[portKey(id, passthroughSelf.id)] ?? null) : null
         continue
       }
 
@@ -278,13 +322,13 @@ export function solveScheme(scheme: Scheme, options: SolveOptions = {}): SolveRe
     }
   }
 
-  if (unstable) issues.push({ kind: 'unstable', componentIds: cycle })
-
   for (const [id, item] of prepared) {
     if (item.spec.ports.every((port) => port.dir !== 'out')) {
       issues.push({ kind: 'no-output', componentId: id })
     }
   }
+
+  if (unstable) issues.push({ kind: 'unstable', componentIds: cycle })
 
   return { values, issues }
 }
@@ -319,7 +363,12 @@ function converged(
   })
 }
 
-export function portValue(scheme: Scheme, values: Record<string, number | null>, componentId: string, portId: string): number | null {
+export function portValue(
+  scheme: Scheme,
+  values: Record<string, number | null>,
+  componentId: string,
+  portId: string,
+): number | null {
   const component = scheme.components.find((item) => item.id === componentId)
   const spec = component ? getComponent(component.key) : undefined
   const port = spec ? portOf(spec, portId) : undefined

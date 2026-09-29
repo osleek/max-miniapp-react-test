@@ -143,6 +143,7 @@ export const UNITS = {
   second: unit('с', 'Время', dimension(T)),
   minute: unit('мин', 'Время', dimension(T), 60),
   ampere: unit('А', 'Сила тока', dimension(I)),
+  coulomb: unit('Кл', 'Электрический заряд', dimension({ current: 1, time: 1 })),
   milliampere: unit('мА', 'Сила тока', dimension(I), 0.001),
   kelvin: unit('К', 'Температура', dimension(K)),
   celsius: unit('°C', 'Температура', dimension(K), 1, 273.15),
@@ -201,7 +202,73 @@ export function unitForDimension(target: Dimension): Unit | undefined {
   return candidates.find((item) => sameDimension(item.dimension, target) && item.factor === 1 && !item.offset)
 }
 
+export type QuantityGroup =
+  | 'electrical'
+  | 'geometric'
+  | 'mechanical'
+  | 'time'
+  | 'thermal'
+  | 'optical'
+  | 'other'
+
 export function formatQuantity(input: Quantity, precision = 2): string {
   const rounded = Number(input.value.toFixed(precision))
   return `${rounded.toLocaleString('ru-RU')} ${input.unit.symbol}`
+}
+
+const FORCE = dimension({ mass: 1, length: 1, time: -2 })
+const PRESSURE = dimension({ mass: 1, length: -1, time: -2 })
+const STIFFNESS = dimension({ mass: 1, time: -2 })
+const ENERGY = dimension({ mass: 1, length: 2, time: -2 })
+const POWER = dimension({ mass: 1, length: 2, time: -3 })
+const SPEED = dimension({ length: 1, time: -1 })
+const ACCELERATION = dimension({ length: 1, time: -2 })
+const AREA = dimension({ length: 2 })
+const VOLUME = dimension({ length: 3 })
+const TEMPERATURE_CAPACITY = dimension({ length: 2, time: -2, temperature: -1 })
+
+export const GROUP_COLORS: Record<QuantityGroup, string> = {
+  electrical: '#2c6bff',
+  geometric: '#c98a00',
+  mechanical: '#e06a1b',
+  time: '#8a5cf6',
+  thermal: '#d5372c',
+  optical: '#0f9fa8',
+  other: '#7a8290',
+}
+
+export function groupForDimension(value: Dimension): QuantityGroup {
+  if (sameDimension(value, UNITS.volt.dimension)) return 'electrical'
+  if (sameDimension(value, UNITS.ohm.dimension)) return 'electrical'
+  if (sameDimension(value, UNITS.watt.dimension)) return 'electrical'
+  if (sameDimension(value, UNITS.ampere.dimension)) return 'electrical'
+  if (sameDimension(value, UNITS.coulomb.dimension)) return 'electrical'
+  if (sameDimension(value, UNITS.henry.dimension)) return 'electrical'
+  if (sameDimension(value, UNITS.farad.dimension)) return 'electrical'
+  if (sameDimension(value, ENERGY)) return 'electrical'
+  if (sameDimension(value, POWER)) return 'electrical'
+  if (sameDimension(value, TEMPERATURE_CAPACITY)) return 'thermal'
+  if (sameDimension(value, UNITS.kelvin.dimension)) return 'thermal'
+  if (sameDimension(value, FORCE)) return 'mechanical'
+  if (sameDimension(value, PRESSURE)) return 'mechanical'
+  if (sameDimension(value, STIFFNESS)) return 'mechanical'
+  if (sameDimension(value, ACCELERATION)) return 'mechanical'
+  if (sameDimension(value, SPEED)) return 'optical'
+  if (sameDimension(value, UNITS.metre.dimension)) return 'geometric'
+  if (sameDimension(value, UNITS.nanometre.dimension)) return 'geometric'
+  if (sameDimension(value, AREA)) return 'geometric'
+  if (sameDimension(value, VOLUME)) return 'geometric'
+  if (sameDimension(value, UNITS.second.dimension)) return 'time'
+  if (sameDimension(value, UNITS.hertz.dimension)) return 'time'
+  return 'other'
+}
+
+export function sameGroup(a: Unit, b: Unit): boolean {
+  return groupForDimension(a.dimension) === groupForDimension(b.dimension)
+}
+
+export function isModifierUnit(value: Unit): boolean {
+  return groupForDimension(value.dimension) === 'time'
+    || groupForDimension(value.dimension) === 'thermal'
+    || sameDimension(value.dimension, FORCE)
 }
