@@ -267,7 +267,7 @@ async function main() {
       result: `клеммы на полотне у ${components.length} приборов`,
     })
 
-    await connect({ component: components[0], terminal: 'plus' }, { component: components[1], terminal: 'left' })
+    await connect({ component: components[0], terminal: 'right' }, { component: components[1], terminal: 'left' })
     await sleep(500)
     await connect({ component: components[1], terminal: 'right' }, { component: components[2], terminal: 'left' })
     await sleep(600)
