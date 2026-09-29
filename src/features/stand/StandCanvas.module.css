@@ -1,0 +1,119 @@
+.wrap {
+  position: relative;
+  flex: 1;
+  min-height: 180px;
+  display: flex;
+  padding: var(--gap-1) var(--gap-2);
+}
+
+.svg {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  touch-action: none;
+  background-color: var(--lab-paper);
+  background-image:
+    linear-gradient(var(--lab-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--lab-grid) 1px, transparent 1px);
+  background-size: 5% 5%;
+  border: 1px solid var(--lab-paper-edge);
+  border-radius: var(--radius-sm);
+}
+
+.empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--card-pad);
+  text-align: center;
+  color: var(--text-secondary);
+  background: var(--lab-paper);
+  border: 1px dashed var(--lab-paper-edge);
+  border-radius: var(--radius-sm);
+}
+
+.zoom {
+  position: absolute;
+  top: calc(var(--gap-1) + 8px);
+  right: calc(var(--gap-2) + 8px);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 2;
+}
+
+.zoomButton {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--divider-secondary);
+  border-radius: var(--radius-sm);
+  background: var(--background-primary);
+  color: var(--text-primary);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.zoomButton:active {
+  background: var(--background-secondary);
+}
+
+.plate {
+  fill: var(--lab-paper);
+  stroke: transparent;
+  stroke-width: 0.8;
+}
+
+.plateActive {
+  stroke: var(--lab-accent, #d5372c);
+}
+
+.plateWrong {
+  fill: var(--lab-wrong-bg, rgba(213, 55, 44, 0.12));
+  stroke: var(--lab-accent, #d5372c);
+}
+
+.device {
+  color: var(--lab-wire);
+  pointer-events: none;
+}
+
+.deviceWrong {
+  color: var(--lab-accent, #d5372c);
+}
+
+.label {
+  fill: var(--lab-ink);
+  font-family: var(--family-base, system-ui, sans-serif);
+  font-size: 3.2px;
+  text-anchor: middle;
+  opacity: 0.85;
+}
+
+.wire {
+  fill: none;
+  stroke: var(--lab-wire);
+  stroke-width: 1.1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.current {
+  fill: none;
+  stroke: var(--lab-accent, #d5372c);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+}
+
+.terminal {
+  fill: var(--lab-paper);
+  stroke: var(--lab-wire);
+  stroke-width: 1;
+  cursor: pointer;
+}
+
+.terminalPending {
+  fill: var(--lab-accent, #d5372c);
+  stroke: var(--lab-accent, #d5372c);
+}
