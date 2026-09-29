@@ -19,7 +19,7 @@ function viewProps(spec: ComponentSpec, overrides: Partial<ViewProps> = {}): Vie
 
 describe('библиотека', () => {
   it('не пустая и покрывает все разделы', () => {
-    expect(components.length).toBeGreaterThanOrEqual(15)
+    expect(components.length).toBeGreaterThanOrEqual(8)
 
     for (const domain of DOMAINS) {
       const items = components.filter((spec) => spec.domain === domain.key)
@@ -76,7 +76,7 @@ describe('библиотека', () => {
 
   it('находится по ключу', () => {
     expect(getComponent('resistor')?.title).toBe('Резистор')
-    expect(getComponent('lens')?.domain).toBe('optics')
+    expect(getComponent('oscillator')?.domain).toBe('electricity')
   })
 })
 
@@ -142,10 +142,14 @@ describe('визуализация компонентов', () => {
     }
   })
 
-  it('анимация зависит от времени только у движущихся компонентов', () => {
-    const pendulum = getComponent('pendulum')!
-    const first = renderToStaticMarkup(<svg>{pendulum.view!(viewProps(pendulum, { time: 0 }))}</svg>)
-    const second = renderToStaticMarkup(<svg>{pendulum.view!(viewProps(pendulum, { time: 0.7 }))}</svg>)
+  it('анимация колебательного контура зависит от времени', () => {
+    const tank = getComponent('oscillator')!
+    const props = viewProps(tank)
+    props.outputs.frequency = 50
+    props.outputs.out = 1.2
+
+    const first = renderToStaticMarkup(<svg>{tank.view!({ ...props, time: 0, running: true })}</svg>)
+    const second = renderToStaticMarkup(<svg>{tank.view!({ ...props, time: 0.7, running: true })}</svg>)
 
     expect(first).not.toBe(second)
   })

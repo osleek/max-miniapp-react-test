@@ -322,6 +322,8 @@ export function solveScheme(scheme: Scheme, options: SolveOptions = {}): SolveRe
     }
   }
 
+  measureCircuit(prepared, values)
+
   for (const [id, item] of prepared) {
     if (item.spec.ports.every((port) => port.dir !== 'out')) {
       issues.push({ kind: 'no-output', componentId: id })
@@ -331,6 +333,68 @@ export function solveScheme(scheme: Scheme, options: SolveOptions = {}): SolveRe
   if (unstable) issues.push({ kind: 'unstable', componentIds: cycle })
 
   return { values, issues }
+}
+
+
+function measureCircuit(
+  prepared: Map<string, Prepared>,
+  values: Record<string, number | null>,
+): void {
+  const measuring = [...prepared.values()].filter((item) => item.spec.measure)
+  if (measuring.length === 0) return
+
+  let voltage: number | null = null
+  for (const item of prepared.values()) {
+    const port = item.spec.ports.find((entry) => entry.id === 'source')
+    if (!port) continue
+
+    const value = values[portKey(item.component.id, port.id)]
+    if (typeof value === 'number') {
+      voltage = value
+      break
+    }
+  }
+
+  let totalOhms = 0
+  let hasResistance = false
+
+  for (const item of prepared.values()) {
+    const resistance = item.spec.ohms?.(item.params)
+    if (typeof resistance === 'number' && Number.isFinite(resistance)) {
+      totalOhms += resistance
+      hasResistance = true
+
+      // Сопротивление показываем только когда цепь собрана с источником.
+      if (voltage !== null) {
+        values[portKey(item.component.id, 'ohms')] = resistance
+      }
+    }
+  }
+
+  const ohms = hasResistance && totalOhms > 0 ? totalOhms : null
+  const current = voltage !== null && ohms !== null ? voltage / ohms : null
+
+  for (const item of measuring) {
+    const result = item.spec.measure!({
+      circuitVoltage: voltage,
+      circuitCurrent: current,
+      totalOhms: ohms,
+      read: (componentId, portId) => values[portKey(componentId, portId)] ?? null,
+      components: [...prepared.values()].map((entry) => ({
+        id: entry.component.id,
+        key: entry.spec.key,
+        params: entry.params,
+      })),
+      paramsOf: (componentId) => prepared.get(componentId)?.params ?? {},
+    })
+
+    for (const port of item.spec.ports) {
+      if (port.dir !== 'out') continue
+      const value = result[port.id]
+      if (value === undefined) continue
+      values[portKey(item.component.id, port.id)] = typeof value === 'number' && Number.isFinite(value) ? value : null
+    }
+  }
 }
 
 function converged(

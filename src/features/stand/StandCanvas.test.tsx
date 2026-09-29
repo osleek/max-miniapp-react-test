@@ -8,7 +8,7 @@ function bench(): Stand {
   stand = addComponent(stand, 'lamp', 'lamp')
   stand = addLink(stand, {
     id: 'l1',
-    from: { component: 'src', terminal: 'plus' },
+    from: { component: 'src', terminal: 'right' },
     to: { component: 'lamp', terminal: 'left' },
   })
 
@@ -84,31 +84,31 @@ describe('полотно стенда', () => {
   })
 
   it('показывает течение тока, когда опыт идёт', () => {
-    const idle = render(bench(), { values: { 'src:out': 12 }, running: false })
+    const idle = render(bench(), { values: { 'src:source': 12, 'lamp:out': 1.2 }, running: false })
     const flowing = render(bench(), {
-      values: { 'src:out': 12, 'src:plus': null, 'lamp:power': 20 },
+      values: { 'src:source': 12, 'lamp:out': 1.2 },
       running: true,
       time: 1,
     })
 
     expect(flowing).not.toBe(idle)
+    expect(flowing).toContain('current')
   })
 
   it('передаёт время в отрисовку движущихся приборов', () => {
-    let stand = addComponent(emptyStand(), 'pend', 'pendulum')
-    stand = { ...stand, components: stand.components.map((item) => ({ ...item, params: { length: 100, amplitude: 20 } })) }
+    const stand = addComponent(emptyStand(), 'tank', 'oscillator')
 
-    const first = render(stand, { time: 0, running: true, values: { 'pend:out': 2 } })
-    const second = render(stand, { time: 0.5, running: true, values: { 'pend:out': 2 } })
+    const first = render(stand, { time: 0, running: true, values: { 'tank:frequency': 50, 'tank:out': 1.2 } })
+    const second = render(stand, { time: 0.5, running: true, values: { 'tank:frequency': 50, 'tank:out': 1.2 } })
 
     expect(first).not.toBe(second)
   })
 
   it('в покое анимация замирает', () => {
-    const stand = addComponent(emptyStand(), 'pend', 'pendulum')
+    const stand = addComponent(emptyStand(), 'tank', 'oscillator')
 
-    const first = render(stand, { time: 0, running: false, values: { 'pend:out': 2 } })
-    const second = render(stand, { time: 3, running: false, values: { 'pend:out': 2 } })
+    const first = render(stand, { time: 0, running: false, values: { 'tank:frequency': 50 } })
+    const second = render(stand, { time: 3, running: false, values: { 'tank:frequency': 50 } })
 
     expect(first).toBe(second)
   })

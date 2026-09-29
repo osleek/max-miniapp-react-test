@@ -77,7 +77,6 @@ export function StandRunScreen({ labId, mode }: StandRunScreenProps) {
         }))
     })
   }, [lab])
-
   if (error) {
     return (
       <Screen header={<AppHeader title="Работа" />}>
@@ -215,40 +214,76 @@ export function StandRunScreen({ labId, mode }: StandRunScreenProps) {
                     </Typography.Label>
                   </span>
                   <input
-                  className={s.range}
-                  type="range"
-                  min={item.param.min}
-                  max={item.param.max}
-                  step={item.param.step}
-                  value={item.value}
-                  onChange={(event) =>
-                    setLab((current2) =>
-                      current2
-                        ? {
-                            ...current2,
-                            model: {
-                              ...current2.model,
-                              stand: {
-                                ...current2.model.stand,
-                                components: current2.model.stand.components.map((component) =>
-                                  component.id === item.componentId
-                                    ? {
-                                        ...component,
-                                        params: {
-                                          ...(component.params ?? {}),
-                                          [item.param.id]: Number(event.target.value),
-                                        },
-                                      }
-                                    : component,
-                                ),
+                    className={s.range}
+                    type="range"
+                    min={item.param.min}
+                    max={item.param.max}
+                    step={item.param.step}
+                    value={item.value}
+                    onChange={(event) =>
+                      setLab((current2) =>
+                        current2
+                          ? {
+                              ...current2,
+                              model: {
+                                ...current2.model,
+                                stand: {
+                                  ...current2.model.stand,
+                                  components: current2.model.stand.components.map((component) =>
+                                    component.id === item.componentId
+                                      ? {
+                                          ...component,
+                                          params: {
+                                            ...(component.params ?? {}),
+                                            [item.param.id]: Number(event.target.value),
+                                          },
+                                        }
+                                      : component,
+                                  ),
+                                },
                               },
-                            },
-                          }
-                        : current2,
-                    )
-                  }
-                />
-              </label>
+                            }
+                          : current2,
+                      )
+                    }
+                  />
+                  <input
+                    className={s.paramNumber}
+                    type="number"
+                    inputMode="decimal"
+                    min={item.param.min}
+                    max={item.param.max}
+                    step={item.param.step}
+                    value={item.value}
+                    aria-label={`${item.componentTitle}: ${item.param.label}`}
+                    onChange={(event) =>
+                      setLab((current2) =>
+                        current2
+                          ? {
+                              ...current2,
+                              model: {
+                                ...current2.model,
+                                stand: {
+                                  ...current2.model.stand,
+                                  components: current2.model.stand.components.map((component) =>
+                                    component.id === item.componentId
+                                      ? {
+                                          ...component,
+                                          params: {
+                                            ...(component.params ?? {}),
+                                            [item.param.id]: Number(event.target.value),
+                                          },
+                                        }
+                                      : component,
+                                  ),
+                                },
+                              },
+                            }
+                          : current2,
+                      )
+                    }
+                  />
+                </label>
               ))}
             </div>
           ) : null}

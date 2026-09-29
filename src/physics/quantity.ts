@@ -154,6 +154,7 @@ export const UNITS = {
   newton: unit('Н', 'Сила', dimension({ mass: 1, length: 1, time: -2 })),
   joule: unit('Дж', 'Энергия', dimension({ mass: 1, length: 2, time: -2 })),
   henry: unit('Гн', 'Индуктивность', dimension({ mass: 1, length: 2, time: -2, current: -2 })),
+  millihenry: unit('мГн', 'Индуктивность', dimension({ mass: 1, length: 2, time: -2, current: -2 }), 1e-3),
   farad: unit('Ф', 'Электроёмкость', dimension({ mass: -1, length: -2, time: 4, current: 2 })),
   hertz: unit('Гц', 'Частота', dimension({ time: -1 })),
   metrePerSecond: unit('м/с', 'Скорость', dimension({ length: 1, time: -1 })),
@@ -244,6 +245,7 @@ export function groupForDimension(value: Dimension): QuantityGroup {
   if (sameDimension(value, UNITS.ampere.dimension)) return 'electrical'
   if (sameDimension(value, UNITS.coulomb.dimension)) return 'electrical'
   if (sameDimension(value, UNITS.henry.dimension)) return 'electrical'
+  if (sameDimension(value, UNITS.millihenry.dimension)) return 'electrical'
   if (sameDimension(value, UNITS.farad.dimension)) return 'electrical'
   if (sameDimension(value, ENERGY)) return 'electrical'
   if (sameDimension(value, POWER)) return 'electrical'

@@ -4,7 +4,7 @@ import { registerComponents } from './registry'
 export * from './component'
 export * from './registry'
 export * from './solver'
-export { LIBRARY, wavelengthColor } from './components/library'
+export { LIBRARY } from './components/library'
 
 let registered = false
 

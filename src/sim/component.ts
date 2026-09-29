@@ -10,10 +10,7 @@ export interface DomainSpec {
 }
 
 export const DOMAINS: DomainSpec[] = [
-  { key: 'mechanics', title: 'Механика', hint: 'Силы, движение, колебания' },
   { key: 'electricity', title: 'Электрика', hint: 'Ток, напряжение, элементы цепи' },
-  { key: 'thermal', title: 'Теплота', hint: 'Нагрев и температура' },
-  { key: 'optics', title: 'Оптика', hint: 'Лучи, линзы, зеркала' },
 ]
 
 export interface PortSpec {
@@ -65,6 +62,23 @@ export interface ComputeContext {
   time: number
 }
 
+export interface MeasureContext {
+  
+  circuitCurrent: number | null
+  
+  circuitVoltage: number | null
+  
+  totalOhms: number | null
+  
+  read: (componentId: string, portId: string) => number | null
+
+  
+  components: { id: string; key: string; params: Record<string, number> }[]
+
+  
+  paramsOf: (componentId: string) => Record<string, number>
+}
+
 export type ComputeResult = Record<string, number | null>
 
 export interface ComponentSpec {
@@ -76,6 +90,13 @@ export interface ComponentSpec {
   terminals: TerminalSpec[]
   params: ParamSpec[]
   compute: (context: ComputeContext) => ComputeResult
+
+  
+  ohms?: (params: Record<string, number>) => number | null
+
+  
+  measure?: (context: MeasureContext) => ComputeResult
+
   
   view?: (props: ViewProps) => ReactNode
 }

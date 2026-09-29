@@ -79,21 +79,22 @@ function round(value: number): number {
   return Math.round(value * 10) / 10
 }
 
-function currentAt(
+function readingAt(
   item: PlacedComponent,
-  terminalId: string,
   values: Record<string, number | null>,
-): number {
+): number | null {
   const spec = getComponent(item.key)
-  const terminal = spec?.terminals.find((entry) => entry.id === terminalId)
-  const port = terminal ? spec?.ports.find((entry) => entry.id === terminal.port) : undefined
-  if (!port) return 0
+  if (!spec) return null
 
-  const isCurrent = sameDimension(port.unit.dimension, UNITS.ampere.dimension)
-  if (!isCurrent) return 0
+  for (const port of spec.ports) {
+    const isCurrent = port.dir === 'out' && sameDimension(port.unit.dimension, UNITS.ampere.dimension)
+    if (!isCurrent) continue
 
-  const value = values[`${item.id}:${port.id}`]
-  return typeof value === 'number' ? value : 0
+    const value = values[`${item.id}:${port.id}`]
+    if (typeof value === 'number' && Math.abs(value) > 1e-9) return Math.abs(value)
+  }
+
+  return null
 }
 
 export function StandCanvas({
@@ -263,9 +264,11 @@ export function StandCanvas({
             const route = wireRoute(from, link.from.terminal, to, link.to.terminal)
             if (!route) return null
 
-            const current = Math.abs(currentAt(from, link.from.terminal, values) || currentAt(to, link.to.terminal, values))
+            // Ток ищем на обоих концах провода: он есть у прибора, который
+            // считает его по закону Ома, а на клемме может быть напряжение.
+            const current = readingAt(from, values) ?? readingAt(to, values) ?? 0
             const flowing = running && current > 1e-9
-            const speed = flowing ? Math.min(60, 4 + Math.abs(current) * 12) : 0
+            const speed = flowing ? Math.min(60, 4 + current * 12) : 0
 
             return (
               <g key={link.id}>

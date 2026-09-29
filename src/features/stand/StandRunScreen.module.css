@@ -81,6 +81,18 @@
   accent-color: var(--max-color-primary, #2c6bff);
 }
 
+.paramNumber {
+  width: 100%;
+  max-width: 140px;
+  padding: 8px 10px;
+  border: 1px solid var(--divider-secondary);
+  border-radius: var(--radius-sm);
+  background: var(--background-primary);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
 .actions {
   display: flex;
   flex-direction: column;
